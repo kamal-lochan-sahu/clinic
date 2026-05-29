@@ -7,17 +7,51 @@ import ApiError from "../utils/ApiError.js";
 import ApiResponse from "../utils/ApiResponse.js";
 import asyncHandler from "../utils/asyncHandler.js";
 
+// Whitelist allowed fields — prevent mass assignment
+const sanitizePatient = (body) => ({
+  name: body.name,
+  phone: body.phone,
+  email: body.email,
+  photo: body.photo,
+  dateOfBirth: body.dateOfBirth,
+  gender: body.gender,
+  bloodGroup: body.bloodGroup,
+  address: body.address,
+  allergies: Array.isArray(body.allergies) ? body.allergies :
+    (body.allergiesText ? body.allergiesText.split(",").map(s => s.trim()).filter(Boolean) : []),
+  chronicConditions: Array.isArray(body.chronicConditions) ? body.chronicConditions :
+    (body.chronicText ? body.chronicText.split(",").map(s => s.trim()).filter(Boolean) : []),
+  currentMedications: Array.isArray(body.currentMedications) ? body.currentMedications :
+    (body.medicationsText ? body.medicationsText.split(",").map(s => s.trim()).filter(Boolean) : []),
+  notes: body.notes,
+  familyMembers: body.familyMembers,
+});
+
 export const createPatient = asyncHandler(async (req, res) => {
-  const patient = await Patient.create({ ...req.body, ownerId: req.user._id });
+  if (!req.body.name) throw new ApiError(400, "Patient name is required");
+  if (!req.body.phone) throw new ApiError(400, "Phone number is required");
+  if (!req.body.gender) throw new ApiError(400, "Gender is required");
+
+  const patientData = sanitizePatient(req.body);
+  const patient = await Patient.create({ ...patientData, ownerId: req.user._id });
   return res.status(201).json(new ApiResponse(201, patient, "Patient registered successfully"));
 });
 
 export const getPatients = asyncHandler(async (req, res) => {
   const { page = 1, limit = 20, search } = req.query;
   const query = { ownerId: req.user._id, isActive: true };
-  if (search) query.$or = [{ name: { $regex: search, $options: "i" } }, { phone: { $regex: search, $options: "i" } }, { patientId: { $regex: search, $options: "i" } }];
+  if (search) {
+    query.$or = [
+      { name: { $regex: search, $options: "i" } },
+      { phone: { $regex: search, $options: "i" } },
+      { patientId: { $regex: search, $options: "i" } },
+    ];
+  }
   const total = await Patient.countDocuments(query);
-  const patients = await Patient.find(query).sort({ createdAt: -1 }).skip((page - 1) * limit).limit(Number(limit));
+  const patients = await Patient.find(query)
+    .sort({ createdAt: -1 })
+    .skip((page - 1) * limit)
+    .limit(Number(limit));
   return res.status(200).json(new ApiResponse(200, { patients, total, page: Number(page), totalPages: Math.ceil(total / limit) }, "Patients fetched"));
 });
 
@@ -28,7 +62,14 @@ export const getPatientById = asyncHandler(async (req, res) => {
 });
 
 export const updatePatient = asyncHandler(async (req, res) => {
-  const patient = await Patient.findOneAndUpdate({ _id: req.params.id, ownerId: req.user._id }, req.body, { new: true, runValidators: true });
+  const patientData = sanitizePatient(req.body);
+  // Remove undefined keys
+  Object.keys(patientData).forEach(k => patientData[k] === undefined && delete patientData[k]);
+  const patient = await Patient.findOneAndUpdate(
+    { _id: req.params.id, ownerId: req.user._id },
+    patientData,
+    { new: true, runValidators: true }
+  );
   if (!patient) throw new ApiError(404, "Patient not found");
   return res.status(200).json(new ApiResponse(200, patient, "Patient updated"));
 });
@@ -46,7 +87,15 @@ export const getPatientHistory = asyncHandler(async (req, res) => {
 
 export const searchPatients = asyncHandler(async (req, res) => {
   const { q } = req.query;
-  if (!q) throw new ApiError(400, "Search query required");
-  const patients = await Patient.find({ ownerId: req.user._id, isActive: true, $or: [{ name: { $regex: q, $options: "i" } }, { phone: { $regex: q, $options: "i" } }, { patientId: { $regex: q, $options: "i" } }] }).limit(10);
+  if (!q || q.trim().length < 2) throw new ApiError(400, "Search query must be at least 2 characters");
+  const patients = await Patient.find({
+    ownerId: req.user._id,
+    isActive: true,
+    $or: [
+      { name: { $regex: q.trim(), $options: "i" } },
+      { phone: { $regex: q.trim(), $options: "i" } },
+      { patientId: { $regex: q.trim(), $options: "i" } },
+    ],
+  }).limit(10).select("name phone patientId gender bloodGroup allergies");
   return res.status(200).json(new ApiResponse(200, patients, "Search results"));
 });

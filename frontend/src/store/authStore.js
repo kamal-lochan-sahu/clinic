@@ -12,6 +12,14 @@ export const useAuthStore = create(
       login: (user, accessToken) => set({ user, accessToken, isAuthenticated: true }),
       logout: () => set({ user: null, accessToken: null, isAuthenticated: false }),
     }),
-    { name: "medimanage-auth", partialize: (state) => ({ user: state.user, accessToken: state.accessToken, isAuthenticated: state.isAuthenticated }) }
+    {
+      name: "medimanage-auth",
+      // SECURITY FIX: Only persist user info, NOT the token
+      partialize: (state) => ({
+        user: state.user,
+        isAuthenticated: state.isAuthenticated,
+        // accessToken intentionally excluded — use httpOnly cookie instead
+      }),
+    }
   )
 );
