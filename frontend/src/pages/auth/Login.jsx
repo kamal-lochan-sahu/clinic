@@ -10,7 +10,12 @@ import Input from "../../components/ui/Input";
 import Button from "../../components/ui/Button";
 import { useState } from "react";
 
-const schema = z.object({ email: z.string().email("Invalid email"), password: z.string().min(6, "Minimum 6 characters") });
+const schema = z.object({
+  email: z.string().email("Invalid email"),
+  password: z.string().min(6, "Minimum 6 characters"),
+});
+
+const APP_NAME = import.meta.env.VITE_APP_NAME || "MediManage";
 
 export default function Login() {
   const { register, handleSubmit, formState: { errors } } = useForm({ resolver: zodResolver(schema) });
@@ -23,7 +28,7 @@ export default function Login() {
     try {
       const res = await api.post("/auth/login", data);
       login(res.data.data.user, res.data.data.accessToken);
-      toast.success("Welcome back, " + res.data.data.user.name + "!");
+      toast.success("Welcome back, " + res.data.data.user.name.split(" ")[0] + "!");
       navigate("/");
     } catch (err) {
       toast.error(err.response?.data?.message || "Login failed");
@@ -38,7 +43,7 @@ export default function Login() {
             <Activity size={20} className="text-white" />
           </div>
           <div>
-            <h1 className="font-bold text-gray-900 text-xl">MediManage</h1>
+            <h1 className="font-bold text-gray-900 text-xl">{APP_NAME}</h1>
             <p className="text-xs text-gray-400">Clinic Management System</p>
           </div>
         </div>

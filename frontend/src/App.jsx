@@ -1,4 +1,5 @@
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { useEffect } from "react";
 import { useAuthStore } from "./store/authStore";
 
 import Login from "./pages/auth/Login";
@@ -21,13 +22,34 @@ import LabTests from "./pages/labtests/LabTests";
 import Medicines from "./pages/medicines/Medicines";
 import Billing from "./pages/billing/Billing";
 import CreateBill from "./pages/billing/CreateBill";
+import BillingDetail from "./pages/billing/BillingDetail";
 import Staff from "./pages/staff/Staff";
 import Expenses from "./pages/expenses/Expenses";
 import Analytics from "./pages/analytics/Analytics";
 import Settings from "./pages/Settings";
 
+// Apply brand color from user settings
+const applyBrandColor = (color) => {
+  if (!color) return;
+  const root = document.documentElement;
+  // Convert hex to RGB for Tailwind CSS variable
+  const hex = color.replace("#", "");
+  const r = parseInt(hex.substring(0, 2), 16);
+  const g = parseInt(hex.substring(2, 4), 16);
+  const b = parseInt(hex.substring(4, 6), 16);
+  root.style.setProperty("--color-primary", `${r} ${g} ${b}`);
+  root.style.setProperty("--brand-color", color);
+};
+
 export default function App() {
-  const { isAuthenticated } = useAuthStore();
+  const { isAuthenticated, user } = useAuthStore();
+
+  // Apply brand color whenever user changes
+  useEffect(() => {
+    if (user?.branding?.primaryColor) {
+      applyBrandColor(user.branding.primaryColor);
+    }
+  }, [user?.branding?.primaryColor]);
 
   return (
     <BrowserRouter>
@@ -61,6 +83,7 @@ export default function App() {
           <Route path="medicines" element={<Medicines />} />
           <Route path="billing" element={<Billing />} />
           <Route path="billing/new" element={<CreateBill />} />
+          <Route path="billing/:id" element={<BillingDetail />} />
           <Route path="staff" element={<Staff />} />
           <Route path="expenses" element={<Expenses />} />
           <Route path="analytics" element={<Analytics />} />
