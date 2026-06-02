@@ -1,3 +1,5 @@
 .playwright-mcp/
 step*.png
 *.png
+all_code.txt
+all_files.txt
