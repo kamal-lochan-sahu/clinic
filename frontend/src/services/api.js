@@ -14,22 +14,56 @@ api.interceptors.request.use((config) => {
   return config;
 });
 
+let isRefreshing = false;
+let failedQueue = [];
+
+const processQueue = (error, token = null) => {
+  failedQueue.forEach(prom => {
+    if (error) prom.reject(error);
+    else prom.resolve(token);
+  });
+  failedQueue = [];
+};
+
 api.interceptors.response.use(
   (response) => response,
   async (error) => {
     const original = error.config;
+
     if (error.response?.status === 401 && !original._retry) {
+      if (isRefreshing) {
+        return new Promise((resolve, reject) => {
+          failedQueue.push({ resolve, reject });
+        }).then(token => {
+          original.headers.Authorization = "Bearer " + token;
+          return api(original);
+        }).catch(err => Promise.reject(err));
+      }
+
       original._retry = true;
+      isRefreshing = true;
+
       try {
-        const { data } = await axios.post("/api/auth/refresh-token", {}, { withCredentials: true });
-        useAuthStore.getState().setAccessToken(data.data.accessToken);
-        original.headers.Authorization = "Bearer " + data.data.accessToken;
+        const { data } = await axios.post(
+          (import.meta.env.VITE_API_URL || "/api") + "/auth/refresh-token",
+          {},
+          { withCredentials: true }
+        );
+        const newToken = data.data.accessToken;
+        useAuthStore.getState().setAccessToken(newToken);
+        original.headers.Authorization = "Bearer " + newToken;
+        processQueue(null, newToken);
         return api(original);
-      } catch {
+      } catch (refreshError) {
+        processQueue(refreshError, null);
         useAuthStore.getState().logout();
         window.location.href = "/login";
+        return Promise.reject(refreshError);
+      } finally {
+        isRefreshing = false;
       }
     }
+
     const message = error.response?.data?.message || "Something went wrong";
     if (error.response?.status !== 401) toast.error(message);
     return Promise.reject(error);
