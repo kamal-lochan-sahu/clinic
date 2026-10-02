@@ -1,5 +1,33 @@
+# Dependencies
+node_modules/
+
+# Environment (never commit real secrets)
+.env
+.env.*
+!.env.example
+
+# Build output
+dist/
+build/
+coverage/
+
+# Logs
+*.log
+npm-debug.log*
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/*
+!.vscode/extensions.json
+
+# Local scratch / tooling output
 .playwright-mcp/
-step*.png
-*.png
-all_code.txt
-all_files.txt
+tmp/
+uploads/
+
+# Local scratch files at repo root
+/all_code.txt
+/all_files.txt
+/*.png
