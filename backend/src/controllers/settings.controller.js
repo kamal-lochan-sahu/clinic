@@ -25,8 +25,8 @@ const sanitizeSettings = (body) => ({
 });
 
 export const getSettings = asyncHandler(async (req, res) => {
-  let settings = await Settings.findOne({ ownerId: req.user._id });
-  if (!settings) settings = await Settings.create({ ownerId: req.user._id });
+  let settings = await Settings.findOne({ ownerId: req.clinicId });
+  if (!settings) settings = await Settings.create({ ownerId: req.clinicId });
   return res.status(200).json(new ApiResponse(200, settings, "Settings fetched"));
 });
 
@@ -35,7 +35,7 @@ export const updateSettings = asyncHandler(async (req, res) => {
   // Remove undefined keys
   Object.keys(sanitized).forEach(k => sanitized[k] === undefined && delete sanitized[k]);
   const settings = await Settings.findOneAndUpdate(
-    { ownerId: req.user._id },
+    { ownerId: req.clinicId },
     { $set: sanitized },
     { new: true, upsert: true }
   );

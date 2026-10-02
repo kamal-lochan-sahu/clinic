@@ -13,7 +13,7 @@ export const getTodayQueue = asyncHandler(async (req, res) => {
 
 export const addToQueueController = asyncHandler(async (req, res) => {
   const { patientId, appointmentId, doctorId, branchId, date } = req.body;
-  const { queue, tokenNumber } = await addToQueue(req.user._id, branchId, doctorId, date || new Date(), patientId, appointmentId);
+  const { queue, tokenNumber } = await addToQueue(req.clinicId, branchId, doctorId, date || new Date(), patientId, appointmentId);
   return res.status(200).json(new ApiResponse(200, { tokenNumber, queue }, "Added to queue"));
 });
 

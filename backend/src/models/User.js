@@ -18,6 +18,8 @@ const userSchema = new mongoose.Schema({
     doctorName: { type: String, default: "" },
     specialization: { type: String, default: "" },
   },
+  // For staff (doctor/receptionist/nurse): the owner (clinic) they belong to. Null for owners.
+  ownerId: { type: mongoose.Schema.Types.ObjectId, ref: "User", default: null, index: true },
   isActive: { type: Boolean, default: true },
   refreshToken: { type: String, default: "" },
 }, { timestamps: true });

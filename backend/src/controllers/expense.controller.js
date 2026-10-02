@@ -7,13 +7,13 @@ export const createExpense = asyncHandler(async (req, res) => {
   const { amount, category } = req.body;
   if (!amount || amount <= 0) throw new ApiError(400, "Amount must be greater than 0");
   if (!category) throw new ApiError(400, "Category is required");
-  const expense = await Expense.create({ ...req.body, ownerId: req.user._id, addedBy: req.user._id });
+  const expense = await Expense.create({ ...req.body, ownerId: req.clinicId, addedBy: req.user._id });
   return res.status(201).json(new ApiResponse(201, expense, "Expense recorded"));
 });
 
 export const getExpenses = asyncHandler(async (req, res) => {
   const { month, year, category } = req.query;
-  const query = { ownerId: req.user._id };
+  const query = { ownerId: req.clinicId };
   if (month && year) {
     const start = new Date(year, month - 1, 1);
     const end = new Date(year, month, 1);

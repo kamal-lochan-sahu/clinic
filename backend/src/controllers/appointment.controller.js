@@ -35,20 +35,20 @@ export const createAppointment = asyncHandler(async (req, res) => {
   if (conflict) throw new ApiError(409, "This time slot is already booked — please choose another slot");
 
   const appointment = await Appointment.create({
-    ownerId: req.user._id, branchId, patientId, doctorId,
+    ownerId: req.clinicId, branchId, patientId, doctorId,
     date: new Date(date), timeSlot, type: type || "scheduled", reason,
   });
 
-  const { tokenNumber } = await addToQueue(req.user._id, branchId, doctorId, date, patientId, appointment._id);
+  const { tokenNumber } = await addToQueue(req.clinicId, branchId, doctorId, date, patientId, appointment._id);
   appointment.tokenNumber = tokenNumber;
   await appointment.save();
 
   // Send confirmation (non-blocking)
   Patient.findById(patientId).then(async (patient) => {
     if (!patient) return;
-    const settings = await Settings.findOne({ ownerId: req.user._id });
+    const settings = await Settings.findOne({ ownerId: req.clinicId });
     sendAppointmentConfirmation({
-      ownerId: req.user._id, patientId,
+      ownerId: req.clinicId, patientId,
       patientName: patient.name, patientPhone: patient.phone, patientEmail: patient.email,
       date: new Date(date).toLocaleDateString("en-IN"),
       time: timeSlot.start,
@@ -62,7 +62,7 @@ export const createAppointment = asyncHandler(async (req, res) => {
 
 export const getAppointments = asyncHandler(async (req, res) => {
   const { date, doctorId, status, page = 1, limit = 20 } = req.query;
-  const query = { ownerId: req.user._id };
+  const query = { ownerId: req.clinicId };
   if (date) {
     query.date = { $gte: getISTMidnight(date), $lt: getISTNextDay(date) };
   }
@@ -81,7 +81,7 @@ export const getAppointments = asyncHandler(async (req, res) => {
 });
 
 export const getAppointmentById = asyncHandler(async (req, res) => {
-  const appointment = await Appointment.findOne({ _id: req.params.id, ownerId: req.user._id })
+  const appointment = await Appointment.findOne({ _id: req.params.id, ownerId: req.clinicId })
     .populate("patientId", "name phone patientId bloodGroup allergies gender dateOfBirth")
     .populate("doctorId", "name specialization");
   if (!appointment) throw new ApiError(404, "Appointment not found");
@@ -94,7 +94,7 @@ export const updateAppointmentStatus = asyncHandler(async (req, res) => {
   if (!validStatuses.includes(status)) throw new ApiError(400, "Invalid status");
 
   const appointment = await Appointment.findOneAndUpdate(
-    { _id: req.params.id, ownerId: req.user._id },
+    { _id: req.params.id, ownerId: req.clinicId },
     { status, ...(cancelReason && { cancelReason }) },
     { new: true }
   );
@@ -129,7 +129,7 @@ export const getAvailableSlots = asyncHandler(async (req, res) => {
 
 export const getCalendarAppointments = asyncHandler(async (req, res) => {
   const { doctorId, startDate, endDate } = req.query;
-  const query = { ownerId: req.user._id };
+  const query = { ownerId: req.clinicId };
   if (doctorId) query.doctorId = doctorId;
   if (startDate && endDate) query.date = { $gte: new Date(startDate), $lte: new Date(endDate) };
   const appointments = await Appointment.find(query)

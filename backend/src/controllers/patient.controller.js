@@ -33,13 +33,13 @@ export const createPatient = asyncHandler(async (req, res) => {
   if (!req.body.gender) throw new ApiError(400, "Gender is required");
 
   const patientData = sanitizePatient(req.body);
-  const patient = await Patient.create({ ...patientData, ownerId: req.user._id });
+  const patient = await Patient.create({ ...patientData, ownerId: req.clinicId });
   return res.status(201).json(new ApiResponse(201, patient, "Patient registered successfully"));
 });
 
 export const getPatients = asyncHandler(async (req, res) => {
   const { page = 1, limit = 20, search } = req.query;
-  const query = { ownerId: req.user._id, isActive: true };
+  const query = { ownerId: req.clinicId, isActive: true };
   if (search) {
     query.$or = [
       { name: { $regex: search, $options: "i" } },
@@ -56,7 +56,7 @@ export const getPatients = asyncHandler(async (req, res) => {
 });
 
 export const getPatientById = asyncHandler(async (req, res) => {
-  const patient = await Patient.findOne({ _id: req.params.id, ownerId: req.user._id });
+  const patient = await Patient.findOne({ _id: req.params.id, ownerId: req.clinicId });
   if (!patient) throw new ApiError(404, "Patient not found");
   return res.status(200).json(new ApiResponse(200, patient, "Patient fetched"));
 });
@@ -66,7 +66,7 @@ export const updatePatient = asyncHandler(async (req, res) => {
   // Remove undefined keys
   Object.keys(patientData).forEach(k => patientData[k] === undefined && delete patientData[k]);
   const patient = await Patient.findOneAndUpdate(
-    { _id: req.params.id, ownerId: req.user._id },
+    { _id: req.params.id, ownerId: req.clinicId },
     patientData,
     { new: true, runValidators: true }
   );
@@ -77,10 +77,10 @@ export const updatePatient = asyncHandler(async (req, res) => {
 export const getPatientHistory = asyncHandler(async (req, res) => {
   const { id } = req.params;
   const [appointments, prescriptions, labTests, payments] = await Promise.all([
-    Appointment.find({ patientId: id, ownerId: req.user._id }).sort({ date: -1 }).limit(20),
-    Prescription.find({ patientId: id, ownerId: req.user._id }).sort({ date: -1 }).limit(20),
-    LabTest.find({ patientId: id, ownerId: req.user._id }).sort({ createdAt: -1 }).limit(20),
-    Payment.find({ patientId: id, ownerId: req.user._id }).sort({ createdAt: -1 }).limit(20),
+    Appointment.find({ patientId: id, ownerId: req.clinicId }).sort({ date: -1 }).limit(20),
+    Prescription.find({ patientId: id, ownerId: req.clinicId }).sort({ date: -1 }).limit(20),
+    LabTest.find({ patientId: id, ownerId: req.clinicId }).sort({ createdAt: -1 }).limit(20),
+    Payment.find({ patientId: id, ownerId: req.clinicId }).sort({ createdAt: -1 }).limit(20),
   ]);
   return res.status(200).json(new ApiResponse(200, { appointments, prescriptions, labTests, payments }, "History fetched"));
 });
@@ -89,7 +89,7 @@ export const searchPatients = asyncHandler(async (req, res) => {
   const { q } = req.query;
   if (!q || q.trim().length < 2) throw new ApiError(400, "Search query must be at least 2 characters");
   const patients = await Patient.find({
-    ownerId: req.user._id,
+    ownerId: req.clinicId,
     isActive: true,
     $or: [
       { name: { $regex: q.trim(), $options: "i" } },

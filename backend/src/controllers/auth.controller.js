@@ -4,6 +4,7 @@ import ApiError from "../utils/ApiError.js";
 import ApiResponse from "../utils/ApiResponse.js";
 import asyncHandler from "../utils/asyncHandler.js";
 import { generateAccessToken, generateRefreshToken, verifyRefreshToken } from "../utils/jwt.utils.js";
+import { resolveClinicId, resolveBranding } from "../utils/tenant.js";
 
 // Cross-domain cookie options (Vercel + Render)
 const getCookieOptions = () => {
@@ -65,9 +66,11 @@ export const login = asyncHandler(async (req, res) => {
   user.refreshToken = refreshToken;
   await user.save({ validateBeforeSave: false });
 
+  const clinicId = await resolveClinicId(user);
   const userData = {
     _id: user._id, name: user.name, email: user.email,
-    role: user.role, branding: user.branding, specialization: user.specialization,
+    role: user.role, ownerId: clinicId && user.role !== "owner" ? clinicId : null,
+    branding: await resolveBranding(user, clinicId), specialization: user.specialization,
   };
 
   return res.status(200)
@@ -106,5 +109,7 @@ export const refreshToken = asyncHandler(async (req, res) => {
 });
 
 export const getMe = asyncHandler(async (req, res) => {
-  return res.status(200).json(new ApiResponse(200, req.user, "User fetched"));
+  const data = req.user.toObject();
+  data.branding = await resolveBranding(req.user, req.clinicId);
+  return res.status(200).json(new ApiResponse(200, data, "User fetched"));
 });

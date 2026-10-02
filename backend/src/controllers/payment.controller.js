@@ -12,10 +12,10 @@ export const createPayment = asyncHandler(async (req, res) => {
   const totalAmount = subtotal - (discount || 0);
   const dueAmount = totalAmount - (paidAmount || 0);
   const status = dueAmount <= 0 ? "paid" : paidAmount > 0 ? "partial" : "pending";
-  const payment = await Payment.create({ ownerId: req.user._id, branchId, patientId, consultationId, items, subtotal, discount: discount || 0, totalAmount, paidAmount: paidAmount || 0, dueAmount: Math.max(0, dueAmount), paymentMode, status });
+  const payment = await Payment.create({ ownerId: req.clinicId, branchId, patientId, consultationId, items, subtotal, discount: discount || 0, totalAmount, paidAmount: paidAmount || 0, dueAmount: Math.max(0, dueAmount), paymentMode, status });
   try {
     const patient = await Patient.findById(patientId);
-    const settings = await Settings.findOne({ ownerId: req.user._id });
+    const settings = await Settings.findOne({ ownerId: req.clinicId });
     const receiptUrl = await generateReceiptPDF({ clinicName: settings?.clinic?.name || "MediManage", patientName: patient?.name || "Patient", receiptNumber: payment.receiptNumber, date: payment.createdAt, items, totalAmount, paidAmount: paidAmount || 0, dueAmount: Math.max(0, dueAmount) });
     payment.receiptUrl = receiptUrl;
     await payment.save();
@@ -25,7 +25,7 @@ export const createPayment = asyncHandler(async (req, res) => {
 
 export const getPayments = asyncHandler(async (req, res) => {
   const { patientId, status, page = 1, limit = 20 } = req.query;
-  const query = { ownerId: req.user._id };
+  const query = { ownerId: req.clinicId };
   if (patientId) query.patientId = patientId;
   if (status) query.status = status;
   const payments = await Payment.find(query).populate("patientId", "name patientId").sort({ createdAt: -1 }).skip((page-1)*limit).limit(Number(limit));
@@ -34,7 +34,7 @@ export const getPayments = asyncHandler(async (req, res) => {
 });
 
 export const getPaymentById = asyncHandler(async (req, res) => {
-  const payment = await Payment.findOne({ _id: req.params.id, ownerId: req.user._id }).populate("patientId", "name patientId phone");
+  const payment = await Payment.findOne({ _id: req.params.id, ownerId: req.clinicId }).populate("patientId", "name patientId phone");
   if (!payment) throw new ApiError(404, "Payment not found");
   return res.status(200).json(new ApiResponse(200, payment, "Payment fetched"));
 });
@@ -44,7 +44,7 @@ export const getDaySummary = asyncHandler(async (req, res) => {
   date.setHours(0,0,0,0);
   const next = new Date(date); next.setDate(date.getDate()+1);
   const summary = await Payment.aggregate([
-    { $match: { ownerId: req.user._id, createdAt: { $gte: date, $lt: next } } },
+    { $match: { ownerId: req.clinicId, createdAt: { $gte: date, $lt: next } } },
     { $group: { _id: "$status", total: { $sum: "$totalAmount" }, paid: { $sum: "$paidAmount" }, count: { $sum: 1 } } },
   ]);
   return res.status(200).json(new ApiResponse(200, summary, "Day summary fetched"));
