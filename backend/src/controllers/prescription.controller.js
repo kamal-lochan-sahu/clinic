@@ -6,12 +6,15 @@ import ApiError from "../utils/ApiError.js";
 import ApiResponse from "../utils/ApiResponse.js";
 import asyncHandler from "../utils/asyncHandler.js";
 import { generatePrescriptionPDF } from "../utils/pdf.utils.js";
+import { assertPatientInClinic } from "../utils/tenant.js";
+import { stripProtected } from "../utils/sanitize.js";
 
 export const createPrescription = asyncHandler(async (req, res) => {
   const { consultationId, patientId, medicines, advice, nextVisit } = req.body;
+  await assertPatientInClinic(req.clinicId, patientId);
   const prescription = await Prescription.create({ ownerId: req.clinicId, consultationId, patientId, doctorId: req.user._id, medicines, advice, nextVisit });
   try {
-    const patient = await Patient.findById(patientId);
+    const patient = await Patient.findOne({ _id: patientId, ownerId: req.clinicId });
     const settings = await Settings.findOne({ ownerId: req.clinicId });
     const pdfUrl = await generatePrescriptionPDF({ clinicName: settings?.clinic?.name || "MediManage", doctorName: settings?.branding?.doctorName || req.user.name, specialization: settings?.branding?.specialization || "", patientName: patient?.name || "Patient", patientId: patient?.patientId || "", date: prescription.date, medicines, advice, nextVisit });
     prescription.pdfUrl = pdfUrl;
@@ -32,7 +35,7 @@ export const getPatientPrescriptions = asyncHandler(async (req, res) => {
 });
 
 export const createTemplate = asyncHandler(async (req, res) => {
-  const template = await PrescriptionTemplate.create({ ...req.body, doctorId: req.user._id });
+  const template = await PrescriptionTemplate.create({ ...stripProtected(req.body), doctorId: req.user._id });
   return res.status(201).json(new ApiResponse(201, template, "Template created"));
 });
 

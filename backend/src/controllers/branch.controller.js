@@ -2,9 +2,10 @@ import Branch from "../models/Branch.js";
 import ApiError from "../utils/ApiError.js";
 import ApiResponse from "../utils/ApiResponse.js";
 import asyncHandler from "../utils/asyncHandler.js";
+import { stripProtected } from "../utils/sanitize.js";
 
 export const createBranch = asyncHandler(async (req, res) => {
-  const branch = await Branch.create({ ...req.body, ownerId: req.clinicId });
+  const branch = await Branch.create({ ...stripProtected(req.body), ownerId: req.clinicId });
   return res.status(201).json(new ApiResponse(201, branch, "Branch created"));
 });
 
@@ -20,7 +21,7 @@ export const getBranchById = asyncHandler(async (req, res) => {
 });
 
 export const updateBranch = asyncHandler(async (req, res) => {
-  const branch = await Branch.findOneAndUpdate({ _id: req.params.id, ownerId: req.clinicId }, req.body, { new: true });
+  const branch = await Branch.findOneAndUpdate({ _id: req.params.id, ownerId: req.clinicId }, stripProtected(req.body), { new: true });
   if (!branch) throw new ApiError(404, "Branch not found");
   return res.status(200).json(new ApiResponse(200, branch, "Branch updated"));
 });

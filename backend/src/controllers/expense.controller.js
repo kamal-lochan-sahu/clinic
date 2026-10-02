@@ -2,12 +2,13 @@ import Expense from "../models/Expense.js";
 import ApiError from "../utils/ApiError.js";
 import ApiResponse from "../utils/ApiResponse.js";
 import asyncHandler from "../utils/asyncHandler.js";
+import { stripProtected } from "../utils/sanitize.js";
 
 export const createExpense = asyncHandler(async (req, res) => {
   const { amount, category } = req.body;
   if (!amount || amount <= 0) throw new ApiError(400, "Amount must be greater than 0");
   if (!category) throw new ApiError(400, "Category is required");
-  const expense = await Expense.create({ ...req.body, ownerId: req.clinicId, addedBy: req.user._id });
+  const expense = await Expense.create({ ...stripProtected(req.body), ownerId: req.clinicId, addedBy: req.user._id });
   return res.status(201).json(new ApiResponse(201, expense, "Expense recorded"));
 });
 

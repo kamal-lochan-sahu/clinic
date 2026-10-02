@@ -6,6 +6,7 @@ import Payment from "../models/Payment.js";
 import ApiError from "../utils/ApiError.js";
 import ApiResponse from "../utils/ApiResponse.js";
 import asyncHandler from "../utils/asyncHandler.js";
+import { escapeRegex, parsePagination } from "../utils/sanitize.js";
 
 // Whitelist allowed fields — prevent mass assignment
 const sanitizePatient = (body) => ({
@@ -38,21 +39,22 @@ export const createPatient = asyncHandler(async (req, res) => {
 });
 
 export const getPatients = asyncHandler(async (req, res) => {
-  const { page = 1, limit = 20, search } = req.query;
+  const { search } = req.query;
+  const { pageNum, limitNum } = parsePagination(req.query.page, req.query.limit);
   const query = { ownerId: req.clinicId, isActive: true };
   if (search) {
     query.$or = [
-      { name: { $regex: search, $options: "i" } },
-      { phone: { $regex: search, $options: "i" } },
-      { patientId: { $regex: search, $options: "i" } },
+      { name: { $regex: escapeRegex(search), $options: "i" } },
+      { phone: { $regex: escapeRegex(search), $options: "i" } },
+      { patientId: { $regex: escapeRegex(search), $options: "i" } },
     ];
   }
   const total = await Patient.countDocuments(query);
   const patients = await Patient.find(query)
     .sort({ createdAt: -1 })
-    .skip((page - 1) * limit)
-    .limit(Number(limit));
-  return res.status(200).json(new ApiResponse(200, { patients, total, page: Number(page), totalPages: Math.ceil(total / limit) }, "Patients fetched"));
+    .skip((pageNum - 1) * limitNum)
+    .limit(limitNum);
+  return res.status(200).json(new ApiResponse(200, { patients, total, page: pageNum, totalPages: Math.ceil(total / limitNum) }, "Patients fetched"));
 });
 
 export const getPatientById = asyncHandler(async (req, res) => {
@@ -92,9 +94,9 @@ export const searchPatients = asyncHandler(async (req, res) => {
     ownerId: req.clinicId,
     isActive: true,
     $or: [
-      { name: { $regex: q.trim(), $options: "i" } },
-      { phone: { $regex: q.trim(), $options: "i" } },
-      { patientId: { $regex: q.trim(), $options: "i" } },
+      { name: { $regex: escapeRegex(q.trim()), $options: "i" } },
+      { phone: { $regex: escapeRegex(q.trim()), $options: "i" } },
+      { patientId: { $regex: escapeRegex(q.trim()), $options: "i" } },
     ],
   }).limit(10).select("name phone patientId gender bloodGroup allergies");
   return res.status(200).json(new ApiResponse(200, patients, "Search results"));

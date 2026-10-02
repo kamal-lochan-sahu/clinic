@@ -5,16 +5,18 @@ import ApiError from "../utils/ApiError.js";
 import ApiResponse from "../utils/ApiResponse.js";
 import asyncHandler from "../utils/asyncHandler.js";
 import { generateReceiptPDF } from "../utils/pdf.utils.js";
+import { assertPatientInClinic } from "../utils/tenant.js";
 
 export const createPayment = asyncHandler(async (req, res) => {
   const { patientId, consultationId, branchId, items, discount, paymentMode, paidAmount } = req.body;
+  if (patientId) await assertPatientInClinic(req.clinicId, patientId);
   const subtotal = items.reduce((sum, item) => sum + item.amount, 0);
   const totalAmount = subtotal - (discount || 0);
   const dueAmount = totalAmount - (paidAmount || 0);
   const status = dueAmount <= 0 ? "paid" : paidAmount > 0 ? "partial" : "pending";
   const payment = await Payment.create({ ownerId: req.clinicId, branchId, patientId, consultationId, items, subtotal, discount: discount || 0, totalAmount, paidAmount: paidAmount || 0, dueAmount: Math.max(0, dueAmount), paymentMode, status });
   try {
-    const patient = await Patient.findById(patientId);
+    const patient = await Patient.findOne({ _id: patientId, ownerId: req.clinicId });
     const settings = await Settings.findOne({ ownerId: req.clinicId });
     const receiptUrl = await generateReceiptPDF({ clinicName: settings?.clinic?.name || "MediManage", patientName: patient?.name || "Patient", receiptNumber: payment.receiptNumber, date: payment.createdAt, items, totalAmount, paidAmount: paidAmount || 0, dueAmount: Math.max(0, dueAmount) });
     payment.receiptUrl = receiptUrl;

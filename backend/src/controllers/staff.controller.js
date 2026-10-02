@@ -4,6 +4,7 @@ import Salary from "../models/Salary.js";
 import ApiError from "../utils/ApiError.js";
 import ApiResponse from "../utils/ApiResponse.js";
 import asyncHandler from "../utils/asyncHandler.js";
+import { stripProtected } from "../utils/sanitize.js";
 
 // Staff can never be created as "owner" (that would create a new clinic)
 const STAFF_ROLES = ["doctor", "receptionist", "nurse"];
@@ -47,7 +48,7 @@ export const getStaffById = asyncHandler(async (req, res) => {
 
 export const addSalary = asyncHandler(async (req, res) => {
   if (!(await Staff.exists({ _id: req.params.id, ownerId: req.clinicId }))) throw new ApiError(404, "Staff not found");
-  const salary = await Salary.create({ ...req.body, ownerId: req.clinicId, staffId: req.params.id });
+  const salary = await Salary.create({ ...stripProtected(req.body), ownerId: req.clinicId, staffId: req.params.id });
   return res.status(201).json(new ApiResponse(201, salary, "Salary recorded"));
 });
 

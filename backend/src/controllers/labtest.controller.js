@@ -6,9 +6,12 @@ import ApiResponse from "../utils/ApiResponse.js";
 import asyncHandler from "../utils/asyncHandler.js";
 import { sendLabReportReady } from "../services/notification.service.js";
 import { cloudinary } from "../config/cloudinary.js";
+import { assertPatientInClinic } from "../utils/tenant.js";
+import { stripProtected } from "../utils/sanitize.js";
 
 export const createLabTest = asyncHandler(async (req, res) => {
-  const labTest = await LabTest.create({ ...req.body, ownerId: req.clinicId, doctorId: req.user._id });
+  if (req.body.patientId) await assertPatientInClinic(req.clinicId, req.body.patientId);
+  const labTest = await LabTest.create({ ...stripProtected(req.body), ownerId: req.clinicId, doctorId: req.user._id });
   return res.status(201).json(new ApiResponse(201, labTest, "Lab test ordered"));
 });
 
@@ -28,7 +31,7 @@ export const getLabTestById = asyncHandler(async (req, res) => {
 });
 
 export const updateLabTest = asyncHandler(async (req, res) => {
-  const labTest = await LabTest.findOneAndUpdate({ _id: req.params.id, ownerId: req.clinicId }, req.body, { new: true });
+  const labTest = await LabTest.findOneAndUpdate({ _id: req.params.id, ownerId: req.clinicId }, stripProtected(req.body), { new: true });
   if (!labTest) throw new ApiError(404, "Lab test not found");
   return res.status(200).json(new ApiResponse(200, labTest, "Lab test updated"));
 });
@@ -38,7 +41,7 @@ export const uploadReport = asyncHandler(async (req, res) => {
   const result = await cloudinary.uploader.upload(req.file.path, { folder: "medimanage/reports", resource_type: "auto" });
   const labTest = await LabTest.findOneAndUpdate({ _id: req.params.id, ownerId: req.clinicId }, { reportUrl: result.secure_url, reportUploadedAt: new Date(), status: "completed" }, { new: true });
   if (!labTest) throw new ApiError(404, "Lab test not found");
-  const patient = await Patient.findById(labTest.patientId);
+  const patient = await Patient.findOne({ _id: labTest.patientId, ownerId: req.clinicId });
   const settings = await Settings.findOne({ ownerId: req.clinicId });
   if (patient) await sendLabReportReady({ ownerId: req.clinicId, patientId: labTest.patientId, patientName: patient.name, patientPhone: patient.phone, clinicName: settings?.clinic?.name || "MediManage" });
   return res.status(200).json(new ApiResponse(200, labTest, "Report uploaded"));

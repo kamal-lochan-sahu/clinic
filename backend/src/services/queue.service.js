@@ -1,10 +1,15 @@
 import Queue from "../models/Queue.js";
 import Appointment from "../models/Appointment.js";
 
+const dayStart = (date) => {
+  const d = new Date(date);
+  d.setHours(0, 0, 0, 0);
+  return d;
+};
+
 export const getOrCreateQueue = async (ownerId, branchId, doctorId, date) => {
-  const queueDate = new Date(date);
-  queueDate.setHours(0, 0, 0, 0);
-  let queue = await Queue.findOne({ doctorId, date: queueDate });
+  const queueDate = dayStart(date);
+  let queue = await Queue.findOne({ ownerId, doctorId, date: queueDate });
   if (!queue) queue = await Queue.create({ ownerId, branchId, doctorId, date: queueDate, tokens: [], currentToken: 0 });
   return queue;
 };
@@ -17,17 +22,15 @@ export const addToQueue = async (ownerId, branchId, doctorId, date, patientId, a
   return { queue, tokenNumber };
 };
 
-export const callNextToken = async (doctorId, date) => {
-  const queueDate = new Date(date);
-  queueDate.setHours(0, 0, 0, 0);
-  const queue = await Queue.findOne({ doctorId, date: queueDate }).populate("tokens.patientId", "name phone");
+export const callNextToken = async (ownerId, doctorId, date) => {
+  const queue = await Queue.findOne({ ownerId, doctorId, date: dayStart(date) }).populate("tokens.patientId", "name phone");
   if (!queue) return { queue: null, message: "no_queue" };
   const current = queue.tokens.find((t) => t.status === "in-progress");
   if (current) {
     current.status = "completed";
     current.completedAt = new Date();
     if (current.appointmentId) {
-      await Appointment.findByIdAndUpdate(current.appointmentId, { status: "completed" });
+      await Appointment.findOneAndUpdate({ _id: current.appointmentId, ownerId }, { status: "completed" });
     }
   }
   const next = queue.tokens.find((t) => t.status === "waiting");
@@ -42,10 +45,8 @@ export const callNextToken = async (doctorId, date) => {
   return { queue, message: "success" };
 };
 
-export const getQueueStatus = async (doctorId, date) => {
-  const queueDate = new Date(date);
-  queueDate.setHours(0, 0, 0, 0);
-  const queue = await Queue.findOne({ doctorId, date: queueDate }).populate("tokens.patientId", "name phone patientId");
+export const getQueueStatus = async (ownerId, doctorId, date) => {
+  const queue = await Queue.findOne({ ownerId, doctorId, date: dayStart(date) }).populate("tokens.patientId", "name phone patientId");
   if (!queue) return { waiting: [], inProgress: null, completed: [], currentToken: 0, totalTokens: 0, estimatedWait: 0 };
   const waiting = queue.tokens.filter((t) => t.status === "waiting");
   return {

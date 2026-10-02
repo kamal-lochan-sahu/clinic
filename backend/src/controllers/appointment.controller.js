@@ -5,6 +5,7 @@ import ApiError from "../utils/ApiError.js";
 import ApiResponse from "../utils/ApiResponse.js";
 import asyncHandler from "../utils/asyncHandler.js";
 import { addToQueue } from "../services/queue.service.js";
+import { assertDoctorInClinic, assertPatientInClinic } from "../utils/tenant.js";
 import { sendAppointmentConfirmation } from "../services/notification.service.js";
 
 // IST timezone offset
@@ -26,7 +27,11 @@ export const createAppointment = asyncHandler(async (req, res) => {
   const { patientId, doctorId, date, timeSlot, type, reason, branchId } = req.body;
   if (!patientId || !doctorId || !date || !timeSlot) throw new ApiError(400, "patientId, doctorId, date, timeSlot required");
 
+  await assertDoctorInClinic(req.clinicId, doctorId);
+  await assertPatientInClinic(req.clinicId, patientId);
+
   const conflict = await Appointment.findOne({
+    ownerId: req.clinicId,
     doctorId,
     date: { $gte: getISTMidnight(date), $lt: getISTNextDay(date) },
     "timeSlot.start": timeSlot.start,
@@ -44,7 +49,7 @@ export const createAppointment = asyncHandler(async (req, res) => {
   await appointment.save();
 
   // Send confirmation (non-blocking)
-  Patient.findById(patientId).then(async (patient) => {
+  Patient.findOne({ _id: patientId, ownerId: req.clinicId }).then(async (patient) => {
     if (!patient) return;
     const settings = await Settings.findOne({ ownerId: req.clinicId });
     sendAppointmentConfirmation({
