@@ -17,7 +17,12 @@ const getCookieOptions = () => {
 };
 
 export const register = asyncHandler(async (req, res) => {
-  const { name, email, phone, password, clinicName, specialization } = req.body;
+  const { name, phone, password, clinicName, specialization } = req.body;
+  const email = typeof req.body.email === "string" ? req.body.email.trim().toLowerCase() : "";
+  if (!name || !email || !phone || typeof password !== "string") {
+    throw new ApiError(400, "name, email, phone and password are required");
+  }
+  if (password.length < 6) throw new ApiError(400, "Password must be at least 6 characters");
   if (await User.findOne({ email })) throw new ApiError(409, "Email already registered");
 
   const user = await User.create({
@@ -46,11 +51,14 @@ export const register = asyncHandler(async (req, res) => {
 });
 
 export const login = asyncHandler(async (req, res) => {
-  const { email, password } = req.body;
+  const { password } = req.body;
+  const email = typeof req.body.email === "string" ? req.body.email.trim().toLowerCase() : "";
+  if (!email || typeof password !== "string" || !password) throw new ApiError(400, "Email and password are required");
+
   const user = await User.findOne({ email });
-  if (!user) throw new ApiError(404, "User not found");
+  // Same message for unknown email and wrong password (no account enumeration)
+  if (!user || !(await user.isPasswordCorrect(password))) throw new ApiError(401, "Invalid email or password");
   if (!user.isActive) throw new ApiError(403, "Account deactivated");
-  if (!(await user.isPasswordCorrect(password))) throw new ApiError(401, "Invalid credentials");
 
   const accessToken = generateAccessToken(user._id, user.role);
   const refreshToken = generateRefreshToken(user._id);
@@ -78,12 +86,13 @@ export const logout = asyncHandler(async (req, res) => {
 });
 
 export const refreshToken = asyncHandler(async (req, res) => {
-  const token = req.cookies?.refreshToken || req.body.refreshToken;
-  if (!token) throw new ApiError(401, "Refresh token not found");
+  const token = req.cookies?.refreshToken || req.body?.refreshToken;
+  if (!token || typeof token !== "string") throw new ApiError(401, "Refresh token not found");
 
   const decoded = verifyRefreshToken(token);
   const user = await User.findById(decoded._id);
   if (!user || user.refreshToken !== token) throw new ApiError(401, "Invalid refresh token");
+  if (!user.isActive) throw new ApiError(403, "Account deactivated");
 
   const accessToken = generateAccessToken(user._id, user.role);
   const newRefreshToken = generateRefreshToken(user._id);

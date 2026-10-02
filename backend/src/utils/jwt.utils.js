@@ -1,4 +1,5 @@
 import jwt from "jsonwebtoken";
+import ApiError from "./ApiError.js";
 
 const getJWTSecret = () => {
   if (!process.env.JWT_SECRET) throw new Error("JWT_SECRET not set in environment variables");
@@ -18,10 +19,10 @@ export const generateRefreshToken = (userId) =>
 
 export const verifyAccessToken = (token) => {
   try { return jwt.verify(token, getJWTSecret()); }
-  catch (err) { throw new Error("Invalid or expired token"); }
+  catch (err) { throw new ApiError(401, "Invalid or expired token"); }
 };
 
 export const verifyRefreshToken = (token) => {
   try { return jwt.verify(token, getRefreshSecret()); }
-  catch (err) { throw new Error("Invalid or expired refresh token"); }
+  catch (err) { throw new ApiError(401, "Invalid or expired refresh token"); }
 };

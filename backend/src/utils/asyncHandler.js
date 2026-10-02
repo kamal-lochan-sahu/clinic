@@ -1,7 +1,6 @@
-const asyncHandler = (fn) => async (req, res, next) => {
-  try { await fn(req, res, next); }
-  catch (error) {
-    res.status(error.statusCode || 500).json({ success: false, message: error.message || "Internal Server Error" });
-  }
+// Wraps async route handlers and forwards any error to the central error middleware.
+const asyncHandler = (fn) => (req, res, next) => {
+  Promise.resolve(fn(req, res, next)).catch(next);
 };
+
 export default asyncHandler;
