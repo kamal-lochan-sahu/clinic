@@ -28,6 +28,7 @@ export default function Dashboard() {
   const { data: revenue } = useQuery({
     queryKey: ["revenue", "month"],
     queryFn: () => analyticsService.getRevenue("month").then((r) => r.data.data),
+    enabled: user?.role === "owner",
   });
 
   // Get first name only

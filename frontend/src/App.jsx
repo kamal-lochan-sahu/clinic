@@ -6,6 +6,7 @@ import Login from "./pages/auth/Login";
 import Register from "./pages/auth/Register";
 import Layout from "./components/common/Layout";
 import ProtectedRoute from "./components/common/ProtectedRoute";
+import RoleGuard from "./components/common/RoleGuard";
 
 import Dashboard from "./pages/Dashboard";
 import Patients from "./pages/patients/Patients";
@@ -75,19 +76,19 @@ export default function App() {
           <Route path="queue" element={<Queue />} />
 
           {/* OPD */}
-          <Route path="opd" element={<OPD />} />
-          <Route path="opd/consultation/:patientId" element={<Consultation />} />
+          <Route path="opd" element={<RoleGuard page="/opd"><OPD /></RoleGuard>} />
+          <Route path="opd/consultation/:patientId" element={<RoleGuard page="/opd"><Consultation /></RoleGuard>} />
 
           {/* Other */}
           <Route path="labtests" element={<LabTests />} />
           <Route path="medicines" element={<Medicines />} />
-          <Route path="billing" element={<Billing />} />
-          <Route path="billing/new" element={<CreateBill />} />
-          <Route path="billing/:id" element={<BillingDetail />} />
-          <Route path="staff" element={<Staff />} />
-          <Route path="expenses" element={<Expenses />} />
-          <Route path="analytics" element={<Analytics />} />
-          <Route path="settings" element={<Settings />} />
+          <Route path="billing" element={<RoleGuard page="/billing"><Billing /></RoleGuard>} />
+          <Route path="billing/new" element={<RoleGuard page="/billing"><CreateBill /></RoleGuard>} />
+          <Route path="billing/:id" element={<RoleGuard page="/billing"><BillingDetail /></RoleGuard>} />
+          <Route path="staff" element={<RoleGuard page="/staff"><Staff /></RoleGuard>} />
+          <Route path="expenses" element={<RoleGuard page="/expenses"><Expenses /></RoleGuard>} />
+          <Route path="analytics" element={<RoleGuard page="/analytics"><Analytics /></RoleGuard>} />
+          <Route path="settings" element={<RoleGuard page="/settings"><Settings /></RoleGuard>} />
         </Route>
 
         <Route path="*" element={<Navigate to="/" />} />

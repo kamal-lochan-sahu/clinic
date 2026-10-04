@@ -3,6 +3,7 @@ import { LayoutDashboard, Users, Calendar, Clock, Stethoscope, FlaskConical, Pil
 import { useAuthStore } from "../../store/authStore";
 import { useUIStore } from "../../store/uiStore";
 import { clsx } from "clsx";
+import { canAccess } from "../../utils/roles";
 import api from "../../services/api";
 import toast from "react-hot-toast";
 
@@ -45,7 +46,7 @@ export default function Sidebar() {
 
       {/* Nav */}
       <nav className="flex-1 py-4 overflow-y-auto">
-        {navItems.map(({ to, icon: Icon, label }) => (
+        {navItems.filter(({ to }) => canAccess(user?.role, to)).map(({ to, icon: Icon, label }) => (
           <NavLink key={to} to={to} end={to === "/"} className={({ isActive }) => clsx("flex items-center gap-3 px-4 py-2.5 mx-2 rounded-lg mb-0.5 transition-colors text-sm font-medium", isActive ? "bg-primary-50 text-primary-600" : "text-gray-600 hover:bg-gray-50 hover:text-gray-900")}>
             <Icon size={18} className="flex-shrink-0" />
             {sidebarOpen && <span className="truncate">{label}</span>}
