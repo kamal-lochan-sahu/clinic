@@ -1,5 +1,6 @@
-import { useAuthStore } from "../../store/authStore";
 import { useQueue, useCallNext } from "../../hooks/useQueue";
+import { useDoctors } from "../../hooks/useDoctors";
+import DoctorSelect from "../../components/common/DoctorSelect";
 import { queueService } from "../../services/queue.service";
 import Button from "../../components/ui/Button";
 import Badge from "../../components/ui/Badge";
@@ -9,8 +10,8 @@ import { useQueryClient } from "@tanstack/react-query";
 import toast from "react-hot-toast";
 
 export default function Queue() {
-  const { user } = useAuthStore();
-  const { data: queue, isLoading } = useQueue(user?._id);
+  const { doctors, doctorId, setDoctorId, isLoading: doctorsLoading } = useDoctors();
+  const { data: queue, isLoading } = useQueue(doctorId);
   const callNext = useCallNext();
   const queryClient = useQueryClient();
 
@@ -21,7 +22,7 @@ export default function Queue() {
       toast("No more patients scheduled for today", { icon: "📋" });
       return;
     }
-    callNext.mutate({ doctorId: user?._id, date: new Date().toISOString() });
+    callNext.mutate({ doctorId, date: new Date().toISOString() });
   };
 
   const handleSkip = async (tokenId) => {
@@ -32,7 +33,7 @@ export default function Queue() {
     } catch {}
   };
 
-  if (isLoading) return <Loader text="Loading queue..." />;
+  if (isLoading || doctorsLoading) return <Loader text="Loading queue..." />;
 
   const allDone = queue?.totalTokens > 0 && queue?.waiting?.length === 0 && !queue?.inProgress;
   const noPatients = !queue || queue?.totalTokens === 0;
@@ -46,10 +47,13 @@ export default function Queue() {
             {noPatients ? "No appointments today" : queue?.totalTokens + " total · " + queue?.completed?.length + " completed · " + queue?.waiting?.length + " waiting"}
           </p>
         </div>
-        <Button onClick={handleCallNext} loading={callNext.isPending} disabled={allDone || noPatients}>
-          <ChevronRight size={16} />
-          {allDone ? "All Done Today" : "Call Next Patient"}
-        </Button>
+        <div className="flex items-end gap-3">
+          <DoctorSelect doctors={doctors} value={doctorId} onChange={setDoctorId} className="w-56" />
+          <Button onClick={handleCallNext} loading={callNext.isPending} disabled={allDone || noPatients}>
+            <ChevronRight size={16} />
+            {allDone ? "All Done Today" : "Call Next Patient"}
+          </Button>
+        </div>
       </div>
 
       {allDone && (

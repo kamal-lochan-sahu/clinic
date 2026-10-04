@@ -3,7 +3,8 @@ import { useNavigate } from "react-router-dom";
 import { useForm } from "react-hook-form";
 import { ArrowLeft, Clock, AlertCircle } from "lucide-react";
 import { useCreateAppointment, useAvailableSlots } from "../../hooks/useAppointments";
-import { useAuthStore } from "../../store/authStore";
+import { useDoctors } from "../../hooks/useDoctors";
+import DoctorSelect from "../../components/common/DoctorSelect";
 import PatientSearch from "../../components/patient/PatientSearch";
 import Button from "../../components/ui/Button";
 import Input from "../../components/ui/Input";
@@ -13,21 +14,22 @@ import toast from "react-hot-toast";
 
 export default function BookAppointment() {
   const navigate = useNavigate();
-  const { user } = useAuthStore();
+  const { doctors, doctorId, setDoctorId } = useDoctors();
   const [selectedPatient, setSelectedPatient] = useState(null);
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split("T")[0]);
   const [selectedSlot, setSelectedSlot] = useState(null);
   const { register, handleSubmit } = useForm();
   const createAppointment = useCreateAppointment();
-  const { data: slots } = useAvailableSlots(user?._id, selectedDate);
+  const { data: slots } = useAvailableSlots(doctorId, selectedDate);
 
   const onSubmit = async (data) => {
+    if (!doctorId) { toast.error("No doctor available to book with"); return; }
     if (!selectedPatient) { toast.error("Please select a patient first"); return; }
     if (!selectedSlot) { toast.error("Please select a time slot"); return; }
     try {
       await createAppointment.mutateAsync({
         patientId: selectedPatient._id,
-        doctorId: user._id,
+        doctorId,
         date: selectedDate,
         timeSlot: selectedSlot,
         reason: data.reason,
@@ -71,6 +73,7 @@ export default function BookAppointment() {
 
         <Card className="p-6 space-y-4">
           <h3 className="font-semibold text-gray-700">Date & Time</h3>
+          <DoctorSelect doctors={doctors} value={doctorId} onChange={(id) => { setDoctorId(id); setSelectedSlot(null); }} />
           <Input label="Date" type="date" value={selectedDate}
             onChange={(e) => { setSelectedDate(e.target.value); setSelectedSlot(null); }}
             min={new Date().toISOString().split("T")[0]} />
